@@ -7,12 +7,16 @@ Future:
 Wi-Fi
 Bluetooth
 ESP-NOW
+
+
 Packet Layout
 Header
 Type
 Length
 Payload
 CRC
+
+
 Commands
 ARM
 DISARM
@@ -21,6 +25,8 @@ SET_TARGET
 SET_PARAMETER
 CALIBRATE
 GET_STATE
+
+
 Telemetry
 Timestamp
 Orientation
