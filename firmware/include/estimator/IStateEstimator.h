@@ -1,24 +1,20 @@
 #pragma once
 //
-// IStateEstimator — THE abstraction seam for supporting multiple vehicles.
+// IStateEstimator — the seam between sensing and control.
 //
-// Every vehicle must produce a VehicleState; they just reach it differently:
-//
-//   * Hopcopter  -> OnboardEstimator: reads an IImuSource (raw accel/gyro) and
-//                   runs onboard fusion (Mahony/Madgwick) to compute attitude.
-//
-//   * Robosub    -> ExternalEstimator: the VectorNav's EKF already produced the
-//                   attitude on the Jetson; this parser copies the fused
-//                   solution straight into VehicleState. No onboard fusion.
+// The hopcopter's implementation is OnboardEstimator: it reads an IImuSource
+// (raw accel/gyro from the ICM-20948), runs a Mahony filter for attitude, and
+// fuses the downward VL53L0X range into a tilt-compensated height.
 //
 // The Controller, Safety, and Telemetry modules depend ONLY on this interface
-// and on VehicleState — they never learn which vehicle they are running on.
-// Selection happens once at boot (build flag / Parameter) via a factory.
+// and on VehicleState — they never touch a sensor driver. That keeps the
+// control loop testable against a replayed or synthetic state stream.
 //
 // Timing contract: update() is PULL-BASED and MUST NOT block. The fixed-rate
-// loop calls it every tick. If no fresh sample is available (common on the
-// async Jetson USB path), the estimator keeps its last state and reports
-// healthy() == false once the data has gone stale, which trips Safety.
+// loop calls it every tick. The IMU delivers a fresh sample on nearly every
+// tick; the range sensors are much slower, so update() reuses the last height
+// between range samples. If data goes stale past the freshness timeout,
+// healthy() returns false, which trips Safety's sensor-timeout failsafe.
 
 #include "core/types.h"
 
@@ -34,7 +30,7 @@ public:
 
     // Pull the newest available sensor data and recompute the estimate.
     // `now_us` is the current micros() from the scheduler. Returns true if the
-    // state was advanced with fresh data this tick, false if it reused the
+    // state was advanced with fresh IMU data this tick, false if it reused the
     // previous state (no new sample yet). Never blocks.
     virtual bool update(uint32_t now_us) = 0;
 

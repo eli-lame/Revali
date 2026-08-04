@@ -3,13 +3,12 @@
 // IImuSource — driver-layer contract for a RAW inertial sensor.
 //
 // Scope: chips that report raw accelerometer + gyroscope samples and rely on
-// THIS firmware to fuse them into an attitude (e.g. the hopcopter's I2C IMU).
+// THIS firmware to fuse them into an attitude. The hopcopter's sensor is a
+// SparkFun ICM-20948 on I2C.
 //
-// Deliberately NOT implemented by sensors that do their own fusion. The
-// VectorNav's solution arrives already-fused over the Jetson USB link and is
-// delivered through the estimator layer, not here. Making the VectorNav pretend
-// to be a raw IMU would force us to discard its EKF and re-run a worse filter
-// on the ESP32. See docs/estimator.md for the layering rationale.
+// The interface exists so the fusion filter can be unit-tested against a
+// recorded or synthetic sample stream with no hardware attached, and so a
+// bench-test build can swap in a fake IMU. See docs/estimator.md.
 
 #include "core/types.h"
 
