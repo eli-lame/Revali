@@ -1,4 +1,4 @@
-# Charon
+# Revali
 
 Flight controller firmware for a **hopcopter** — a quadrotor with a passive
 spring-loaded telescopic leg that lets it hop along the ground instead of

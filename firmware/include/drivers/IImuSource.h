@@ -12,7 +12,7 @@
 
 #include "core/types.h"
 
-namespace charon {
+namespace revali {
 
 class IImuSource {
 public:
@@ -31,4 +31,4 @@ public:
     virtual bool healthy() const = 0;
 };
 
-}  // namespace charon
+}  // namespace revali

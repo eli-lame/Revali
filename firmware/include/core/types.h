@@ -1,6 +1,6 @@
 #pragma once
 //
-// Core data contracts for the Charon hopcopter flight controller.
+// Core data contracts for the Revali hopcopter flight controller.
 //
 // These structs are the shared vocabulary between modules. They contain no
 // logic and no hardware knowledge — only plain data. Every module compiles
@@ -11,7 +11,7 @@
 
 #include <cstdint>
 
-namespace charon {
+namespace revali {
 
 // ---------------------------------------------------------------------------
 // Small math primitives
@@ -184,4 +184,4 @@ struct LinkStatus {
     bool connected = false;
 };
 
-}  // namespace charon
+}  // namespace revali

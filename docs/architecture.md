@@ -1,6 +1,6 @@
 # Architecture
 
-Charon is the flight controller firmware for a single vehicle: a quadrotor
+Revali is the flight controller firmware for a single vehicle: a quadrotor
 hopcopter with a passive spring leg. It is not a general-purpose framework and
 carries no abstractions for vehicles it does not fly. Interfaces exist for
 exactly two reasons: to let a module be tested with no hardware attached, and
