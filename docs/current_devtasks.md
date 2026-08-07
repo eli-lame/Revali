@@ -188,6 +188,13 @@ persists across reboot.
 
 ## Phase 6 — Controller firmware (the transmitter)
 
+Both controller forms produce the **same** `CMD_CONTROL` intent packet
+(`roll_cmd`/`pitch_cmd`/`yaw_rate_cmd`/`climb_rate_cmd` + `request`), so the
+vehicle can't tell them apart. Build 6a first — it is the replicable reference
+and the simpler radio path. 6b is the DS4/SCUF gamepad option.
+
+### 6a — Reference joystick controller
+
 - [ ] `[6.1]` Joystick ADC on **ADC1 only** (GPIO 36/39).
 - [ ] `[6.2]` Calibration routine: record centre and both endpoints per axis,
       persist to NVS. Do not assume 2048 is centre.
@@ -195,9 +202,14 @@ persists across reboot.
       expo curve for fine control near centre.
 - [ ] `[6.4]` `SEL` button with `INPUT_PULLUP` and ~20 ms debounce.
 - [ ] `[6.5]` Gesture recognizer: short click, long press 1.5 s, double click,
-      3 s hold — per the table in [flight_modes.md](flight_modes.md).
-- [ ] `[6.6]` Axis mode cycling `TILT → HEADING → ALTITUDE`, with local LED
-      indication.
+      3 s hold — per the joystick gesture table in
+      [flight_modes.md](flight_modes.md). The double-click hop toggle resolves
+      to `SET_HOP` / `SET_HOVER` using the vehicle state from `TLM_STATE` — the
+      wire never carries a toggle.
+- [ ] `[6.6]` Control-scheme cycling `TILT → HEADING → ALTITUDE` with local LED
+      indication, and **intent resolution**: fill the four `CMD_CONTROL` fields
+      from the two axes + current scheme, holding the non-driven tilt field and
+      resting rate fields at zero.
 - [ ] `[6.7]` Emit `CMD_CONTROL` at 50 Hz **unconditionally**. The stream is
       the heartbeat; a gap in it is the failsafe signal.
 - [ ] `[6.8]` Hold each `request` value ~100 ms so one dropped packet does not
@@ -205,8 +217,38 @@ persists across reboot.
 - [ ] `[6.9]` Consume telemetry: LED and buzzer patterns for disarmed / armed /
       flying / hopping / failsafe / link-lost.
 
-**Check:** with the controller on serial, every axis and gesture produces the
-right packet. Verify the 3-second emergency-stop hold before anything can spin.
+**Check:** on serial, every axis + scheme produces the correct resolved intent,
+and every gesture the correct `request`. Verify the 3-second emergency-stop
+hold before anything can spin.
+
+### 6b — Gamepad + ground dongle (optional, DS4/SCUF)
+
+- [ ] `[6.10]` Dongle ESP32 pairs the DS4 over Bluetooth Classic
+      (Bluepad32). Bind one controller; do not auto-accept others.
+- [ ] `[6.11]` Map inputs per the DS4 table in
+      [flight_modes.md](flight_modes.md): two sticks → the four intent fields
+      (no scheme cycling); ✕ → `LAND`, ○ → `SET_HOP`, △ → `SET_HOVER`;
+      L1+R1 hold 1.5 s → `ARM`/`DISARM`; touchpad hold ~2 s → `ESTOP`.
+- [ ] `[6.12]` **Dongle generates `CMD_CONTROL`** and sends it over ESP-NOW —
+      the laptop is never in the flight path. Same 50 Hz unconditional stream
+      and ~100 ms request-hold as 6a.
+- [ ] `[6.13]` Controller-side extras that never touch the vehicle: L2-hold
+      precision mode (scale all four intent fields to ~40%), D-pad ←/→ trim
+      offsets, Share → log marker. These shape or annotate intent before it is
+      sent.
+- [ ] `[6.14]` D-pad ↑/↓ adjusts `hop_height_target` via `CMD_PARAM_SET` — add
+      that parameter to the refuse-while-armed in-flight allowlist.
+- [ ] `[6.16]` Button/axis mapping stored as parameters, editable from the
+      laptop via `CMD_PARAM_SET` — remap without reflashing the dongle.
+- [ ] `[6.17]` Dongle forwards `TLM_STATE` **and** its own decoded DS4 state up
+      USB to the ground station (Phase 7 consumes both).
+- [ ] `[6.18]` **Measure BT-Classic + ESP-NOW coexistence** on the dongle:
+      confirm the 50 Hz command stream holds its rate and latency with the DS4
+      link active. This is the one real risk in the gamepad path.
+
+**Check:** with the dongle only (laptop closed), the DS4 arms, flies, and
+emergency-stops the vehicle exactly as the joystick does — proving the vehicle
+is genuinely controller-agnostic.
 
 ---
 
@@ -218,7 +260,8 @@ instrument** — it pays for itself across Phases 8–12. See
 
 - [ ] `[7.1]` Controller forwards a combined record up the USB cable it is
       already plugged into for power: the vehicle's `TLM_STATE` plus its own
-      stick position, axis mode, button state, and last gesture.
+      raw input and the resolved intent it is sending (joystick: stick +
+      control scheme; dongle: both DS4 sticks + button states).
 - [ ] `[7.2]` Host bridge process: read USB serial, decode using the
       definitions in `shared/link/`, re-serve over WebSocket. Python or Node —
       pick the one you'll actually maintain.
@@ -236,9 +279,11 @@ instrument** — it pays for itself across Phases 8–12. See
 - [ ] `[7.6]` Rolling time-series plots — roll, pitch, yaw, height, vertical
       velocity. These matter more than a 3D view: oscillation and overshoot
       are obvious in a trace and invisible in an orientation cube.
-- [ ] `[7.7]` Controller panel: stick position as a 2D dot with the deadband
-      drawn, **post-calibration and post-expo** — the values as the firmware
-      actually interpreted them.
+- [ ] `[7.7]` Controller panel: the four resolved intent fields, plus the raw
+      input beneath them — joystick stick as a 2D dot with deadband drawn
+      (**post-calibration, post-expo**) and control scheme, or the dongle's two
+      DS4 sticks and button states. Seeing intent diverge from raw input is how
+      a miscalibrated centre or a backwards mapping becomes visible.
 - [ ] `[7.8]` Link quality: packets/sec, `rx_loss_pct`, CRC errors, sequence
       gaps, and time-since-last-command drawn against the 150 ms / 300 ms / 1 s
       failsafe ladder.
@@ -256,8 +301,11 @@ link and watch the failsafe ladder count up.
 
 - [ ] `[8.1]` Vehicle state machine from [flight_modes.md](flight_modes.md),
       with all illegal transitions rejected. Host-tested.
-- [ ] `[8.2]` Joystick → `DesiredState` mapping per axis mode. Unassigned axes
-      hold their last value rather than snapping to zero.
+- [ ] `[8.2]` Intent → `DesiredState`: scale the normalized `CMD_CONTROL`
+      fields against `max_tilt` / `max_yaw_rate` / `max_climb_rate` and
+      **clamp** to the safety envelope. No axis-mode logic here — the vehicle
+      receives resolved intent, not raw axes (see
+      [communication.md](communication.md)).
 - [ ] `[8.3]` Arming gesture with the **full precondition list** from
       [safety.md](safety.md), reporting which check failed.
 - [ ] `[8.4]` Rate PID: D on measurement, low-pass filtered, clamped
@@ -407,7 +455,9 @@ the bring-up sequence there is the detailed version of this list.
 - [ ] `[12.7]` Closed-loop hop-height regulation — proportional, clamped,
       updated **once per hop**.
 - [ ] `[12.8]` Every abort condition from [hop_mode.md](hop_mode.md).
-- [ ] `[12.9]` `HOP_TOGGLE` double-click gesture wired end to end.
+- [ ] `[12.9]` `SET_HOP` / `SET_HOVER` requests wired end to end from both
+      controllers (joystick double-click resolving to the correct explicit
+      request; DS4 ○ / △ buttons).
 - [ ] `[12.10]` Hop phase timeline on the ground station, aligned against the
       height and vertical-velocity traces. This is the single most useful view
       for hop tuning — it is how you see whether the burst is firing at

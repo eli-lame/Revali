@@ -70,7 +70,8 @@ hold, checked fresh at the moment of the request:
 - [ ] estimator healthy, attitude valid
 - [ ] gyro bias calibrated, and the vehicle did not move during calibration
 - [ ] tilt within `arm_max_tilt` (10°)
-- [ ] joystick centred within deadband, and the controller agrees it is centred
+- [ ] controller reports neutral input (`CMD_CONTROL` command fields at zero,
+      known-neutral flag set)
 - [ ] link alive with fresh commands
 - [ ] battery above `arm_min_voltage`
 - [ ] no latched fault

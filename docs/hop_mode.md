@@ -61,8 +61,10 @@ in normal flight, and tilt during `ASCENT`/`DESCENT` is what steers where the
 next landing happens. That is the whole interface, and it is why "joystick
 controls tilt only" is the right constraint rather than a limitation.
 
-Hop height is a parameter, regulated onboard. The pilot toggles hopping on and
-off with a double click and steers with tilt.
+Hop height is a parameter, regulated onboard. The pilot enters and leaves
+hopping with the `SET_HOP` / `SET_HOVER` requests (a joystick double-click that
+resolves to the right one, or dedicated gamepad buttons — see
+[flight_modes.md](flight_modes.md)) and steers with tilt.
 
 ## Thrust profile
 

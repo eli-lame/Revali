@@ -18,14 +18,22 @@ The controller is already USB-tethered to the laptop for power (see
 
 ```
    VEHICLE  ──ESP-NOW──►  CONTROLLER  ──USB serial──►  BRIDGE  ──WebSocket──►  BROWSER
-   (telemetry 10 Hz)      (adds its own              (host process,          (dashboard)
-                           stick state)               Python or Node)
+   (telemetry 10 Hz)      or DONGLE                   (host process,          (dashboard)
+                          (adds its own               Python or Node)
+                           input state)
 ```
 
-The controller already receives `TLM_STATE` from the vehicle and already knows
-its own stick and button state. It forwards both up the USB cable it is
-already plugged into. A small host-side bridge process reads that serial
-stream, decodes the frames, and re-serves them to a browser over a WebSocket.
+"Controller" here is whichever peer you built — the reference joystick ESP32,
+or the DS4/SCUF **dongle** (the gamepad pairs to the dongle, not the laptop;
+see [architecture.md](architecture.md)). Either way it already receives
+`TLM_STATE` from the vehicle and already knows its own input state, and it
+forwards both up the USB cable it is already plugged into. A small host-side
+bridge process reads that serial stream, decodes the frames, and re-serves
+them to a browser over a WebSocket.
+
+Note the dongle, **not** the laptop, generates `CMD_CONTROL`: this USB link is
+telemetry-and-config only, never the command path, so the display-only
+guarantee below holds even in the gamepad configuration.
 
 ### Why not host the webapp on the vehicle ESP32
 
@@ -89,14 +97,20 @@ that reason should be impossible to miss.
 
 ### Controller state
 
-- Live stick position as a 2D dot in a square, with the deadband drawn.
-- Current axis mode (`TILT`/`HEADING`/`ALTITUDE`).
-- Button state and the last gesture recognized.
+- The four resolved intent fields (`roll_cmd`/`pitch_cmd`/`yaw_rate_cmd`/
+  `climb_rate_cmd`) as the controller is actually sending them.
+- Raw input underneath that intent, device-appropriate: the joystick's stick
+  dot with deadband drawn and its current control scheme
+  (`TILT`/`HEADING`/`ALTITUDE`); or, for the dongle, both DS4 sticks and the
+  live button states.
+- Last `request` emitted.
 
-Showing the stick *as the controller actually interpreted it* — post
-calibration, post deadband, post expo — is the point. It makes a
-miscalibrated centre or a wrong deadband immediately visible instead of
-something you infer from the vehicle drifting.
+Showing both the raw input *and* the intent it resolved to is the point. A
+miscalibrated joystick centre, a wrong deadband, or a gamepad axis mapped
+backwards all become immediately visible — you see the intent diverge from the
+raw input, instead of inferring it from the vehicle drifting. This data comes
+from the controller/dongle's own USB channel, not from `CMD_CONTROL` (which no
+longer carries raw axes).
 
 ### Link quality
 

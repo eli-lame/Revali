@@ -20,13 +20,19 @@ whether it is hovering, ballistic, or compressing on the ground.
 | Height / ground contact | 2× VL53L0X ToF, both downward-facing, spaced apart |
 | Propulsion | 4× brushless motors + ESCs, quad-X layout |
 | Controller MCU | ESP32-WROOM (offboard, USB-powered from the laptop) |
-| Input | 1× SparkFun analog joystick (VCC, XOUT, YOUT, SEL, GND) |
+| Input (reference) | 1× SparkFun analog joystick (VCC, XOUT, YOUT, SEL, GND) |
+| Input (optional) | DS4 / SCUF gamepad paired to the offboard ESP32 (Bluepad32) |
 | Link | ESP-NOW |
 | Ground station | Browser dashboard, fed over the controller's USB cable |
 
-The joystick commands **tilt only**. It never commands throttle directly —
-altitude and hop energy are managed onboard. Clicking the joystick button
-cycles what the two axes mean (see [flight_modes.md](docs/flight_modes.md)).
+The controller sends **intent** — desired roll / pitch / yaw-rate / climb-rate
+— never raw throttle; altitude and hop energy are managed onboard, and the
+vehicle clamps every command to its own limits. Because the wire packet carries
+intent, the vehicle is **controller-agnostic**: the reference one-stick joystick
+(which cycles what its two axes mean) and an optional two-stick DS4/SCUF gamepad
+(which needs no cycling) feed the identical packet. See
+[flight_modes.md](docs/flight_modes.md) and
+[communication.md](docs/communication.md).
 
 ## Repository layout
 
@@ -51,7 +57,7 @@ Start with [architecture.md](docs/architecture.md), then
 | [data_model.md](docs/data_model.md) | The structs every module shares |
 | [estimator.md](docs/estimator.md) | Attitude fusion and dual-ToF height |
 | [control_loop.md](docs/control_loop.md) | Controller, mixer, motor output |
-| [flight_modes.md](docs/flight_modes.md) | State machine and joystick mode cycling |
+| [flight_modes.md](docs/flight_modes.md) | State machine; per-controller intent resolution |
 | [hop_mode.md](docs/hop_mode.md) | Hop phase machine and thrust profile |
 | [communication.md](docs/communication.md) | ESP-NOW link, packet format, failsafe |
 | [ground_station.md](docs/ground_station.md) | Browser dashboard for live telemetry and health |

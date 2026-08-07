@@ -69,20 +69,30 @@ reading from becoming an emergency.
 
 ### `DesiredState` — owner: mode manager, consumer: controller
 
+The vehicle-internal form of the pilot's intent. The mode manager builds it by
+scaling the normalized `CMD_CONTROL` fields against the configured maxima and
+**clamping** to the safety envelope — never by interpreting raw axes or a mode
+byte, which no longer exist on the wire (see
+[communication.md](communication.md)).
+
 | Field | Unit | Note |
 |---|---|---|
 | `timestamp_us` | µs | |
-| `roll_rad`, `pitch_rad` | rad | tilt setpoints from the joystick |
-| `yaw_rate_rads` | rad/s | **rate**, not angle |
-| `climb_rate_ms` | m/s | in `ALTITUDE` axis mode |
-| `height_m` | m | hold target, integrated from climb rate |
+| `roll_rad`, `pitch_rad` | rad | tilt setpoints, from `roll_cmd`/`pitch_cmd` × `max_tilt`, clamped |
+| `yaw_rate_rads` | rad/s | **rate**, not angle; from `yaw_rate_cmd` × `max_yaw_rate` |
+| `climb_rate_ms` | m/s | from `climb_rate_cmd` × `max_climb_rate` |
+| `height_m` | m | hold target, integrated from climb rate against the height estimate |
 | `thrust` | 0..1 | collective; **overridden by the hop sequencer** |
-| `use_height_hold` | — | false in attitude-only modes |
+| `use_height_hold` | — | true whenever `climb_rate_cmd` rests at zero |
 
 Yaw is a rate, not an angle, because absolute heading depends on a
 magnetometer that is unreliable near loaded motors. Altitude is commanded as a
-rate that integrates into a held height, which is what lets a two-axis joystick
-retrim altitude without ever having direct throttle authority.
+rate that integrates into a held height — which is what lets *any* controller,
+one-stick or two, retrim altitude without ever having direct throttle
+authority. This struct is essentially the decoded, unit-bearing, clamped form
+of the `CMD_CONTROL` intent packet; keeping the wire packet's fields aligned
+with it is deliberate, so there is one representation of "what the pilot
+wants," not two that can drift.
 
 ### `ControlOutput` — owner: controller, consumer: mixer
 

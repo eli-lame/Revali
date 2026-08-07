@@ -8,13 +8,20 @@ to keep the control loop from depending on a sensor datasheet.
 
 ## Two processors
 
+The vehicle always has a peer that turns human input into `CMD_CONTROL`
+packets. There are two interchangeable forms of that peer, and **the vehicle
+cannot tell them apart** — both send the identical intent packet (see
+[communication.md](communication.md)):
+
+**A — Reference joystick controller** (the replicable default):
+
 ```
    ┌──────────────────────────┐            ┌──────────────────────────────┐
    │   CONTROLLER  (ESP32)    │            │      VEHICLE  (ESP32)        │
    │                          │            │                              │
    │  Joystick ADC + button   │  ESP-NOW   │  Sensors → Estimator         │
    │        │                 │  ──────►   │      │                       │
-   │  Input mapper            │  command   │  Mode Manager → Controller   │
+   │  Interpret → intent      │  command   │  Setpoint → Controller       │
    │        │                 │   50 Hz    │      │                       │
    │  Link TX ────────────────┼──          │  Mixer → Motors → ESCs       │
    │  Link RX ◄───────────────┼──          │      │                       │
@@ -23,12 +30,35 @@ to keep the control loop from depending on a sensor datasheet.
    └──────────────────────────┘   10 Hz    └──────────────────────────────┘
 ```
 
-The controller is deliberately dumb. It reads two analog axes and one button,
-debounces them, maps them to normalized values, and ships them. **Every
-decision that can hurt the vehicle is made on the vehicle** — arming, mode
-legality, tilt limits, failsafes. A controller that crashes, browns out, or
-walks out of range must not be able to command anything unsafe, and the vehicle
-must react correctly to it simply going silent.
+**B — Gamepad + ground dongle** (if you have a DS4-compatible controller):
+
+```
+   DS4 ──BT──► ┌───────────────────┐  ESP-NOW  ┌──────────────┐
+   (gamepad)   │  DONGLE  (ESP32)  │ ────────► │   VEHICLE    │
+               │  Bluepad32 pairs  │  command  │  (unchanged  │
+               │  DS4, maps → intent│  50 Hz    │   from A)    │
+               │        │          │ ◄──────── │              │
+               │  Link  │  USB     │ telemetry └──────────────┘
+               └────────┼──────────┘   10 Hz
+                        ▼
+                   LAPTOP (ground station, display-only)
+```
+
+In both forms the peer is **deliberately dumb about safety**. It reads input,
+resolves it to intent (desired roll/pitch/yaw-rate/climb-rate), and ships it.
+**Every decision that can hurt the vehicle is made on the vehicle** — arming,
+command legality, tilt and height limits, failsafes. A controller that crashes,
+browns out, or walks out of range must not be able to command anything unsafe,
+and the vehicle must react correctly to it simply going silent.
+
+What the peer is *not* dumb about is **interpretation**: turning sticks and
+buttons into intent is device-specific (a one-stick joystick cycles modes to
+fill four command fields; a two-stick gamepad fills them directly), so it lives
+here, on the peer — never on the vehicle. That is the whole point of sending
+intent rather than raw axes. In form B the dongle, not the laptop, generates
+`CMD_CONTROL`: the flight-critical path is DS4 → dongle → vehicle, all
+real-time hardware, and the laptop stays display-only per
+[ground_station.md](ground_station.md).
 
 ## Vehicle data flow
 
@@ -78,7 +108,7 @@ outputs directly.
 | **HAL** | GPIO, SPI, I2C, LEDC/RMT, ADC, timers | Anything about flight |
 | **Drivers** | ICM-20948, VL53L0X, ESC output, battery sense, LEDs | Estimation or control math |
 | **Estimator** | Attitude fusion, height fusion, ground-plane slope | Which chip produced a sample |
-| **Mode Manager** | The flight state machine, joystick→setpoint mapping | PID internals |
+| **Mode Manager** | The flight state machine; scaling/clamping incoming intent into `DesiredState` | How input was interpreted, PID internals |
 | **Hop Sequencer** | The hop phase machine and thrust profile | Motor wiring |
 | **Controller** | Cascaded angle→rate→torque PID, altitude PID | Motor count or layout |
 | **Mixer** | Quad-X allocation, saturation handling | Vehicle state |
