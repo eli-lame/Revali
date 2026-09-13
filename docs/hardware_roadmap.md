@@ -107,6 +107,109 @@ states the rule — motor current transients on a shared 5 V rail cause brownout
 that look exactly like firmware crashes — and a BEC on the ESC board sits in
 the middle of the switching it would need to be immune to.
 
+### The ESC interface — Skystars KO50A
+
+The 4-in-1 selected for Stage 1. Confirmed specifications:
+
+| | |
+|---|---|
+| Board / mounting | 41 × 46 mm, 30.5 × 30.5 M3, soft-mounts included |
+| Weight | 13.3 g |
+| MCU / firmware | BB21 @ 48 MHz, BLHeli_S 16.x, DShot150/300/600 |
+| Pack | 3–6 S (silkscreened 25 V — **stay on 4 S**, 6 S at full charge is 25.2 V) |
+| Current sensor | Yes |
+| **BEC** | **No** — the 5 V rail is ours to generate |
+| In the box | ESC, 8-pin cable, bulk capacitor |
+
+The 8-pin JST-SH pinout, confirmed against the hardware:
+
+| Pin | Signal | Goes to |
+|---|---|---|
+| 1 | GND | board ground |
+| 2 | **BAT** | raw pack voltage → buck input and battery divider, nothing else |
+| 3 | S1 | motor 1 signal |
+| 4 | S2 | motor 2 signal |
+| 5 | S3 | motor 3 signal |
+| 6 | S4 | motor 4 signal |
+| 7 | **NC** | not connected — no separate telemetry line on this board |
+| 8 | CURR | analog current-sense output → ADC1 |
+
+Two things follow. **BAT is raw pack voltage**, 16.8 V at full charge on 4 S — it
+goes to the buck input and the divider and nowhere else. In particular it must
+never reach the devkit's `VIN` pin, whose onboard AMS1117 is rated to roughly
+15 V.
+
+And pin 7 being NC means there is **no separate ESC telemetry wire**. That does
+not rule out RPM feedback: bidirectional DShot returns telemetry on the signal
+line itself, so flashing Bluejay onto the BLHeli_S firmware gets RPM back over
+S1–S4 with no extra conductor.
+
+---
+
+## Power topology and the on/off switch
+
+There is exactly **one battery connection in the vehicle**: the XT60 solders to
+the 4-in-1's battery pads, alongside the bulk capacitor. Nothing high-current
+ever reaches our board.
+
+```
+  LiPo ──XT60──► 4-IN-1 battery pads (B+ / B-)
+                    |
+                    +--> internally: the four ESCs
+                    |
+                    +--> 8-pin ribbon: BAT, GND --> REVALI FC
+                                                      |
+                                                      +--> [FC power switch]
+                                                             |
+                                                             +--> buck --> 5 V --> devkit VIN
+                                                             +--> 100k/22k divider --> ADC1
+```
+
+### There is no switch in the motor path, and there will not be one
+
+The v1 prototype schematic placed a screw terminal in series with battery
+positive, annotated "switch goes here." That is deleted, for two reasons.
+
+**A switch there carries full motor current** — roughly 120 A peak. A switch
+genuinely rated for that is a contactor: heavier than everything else on the
+board put together, and it inserts contact resistance into the highest-current
+path in the vehicle.
+
+**Moving it to the FC does not achieve the same thing.** A switch that only
+cuts our board's BAT feed leaves the ESCs fully powered from the pack. This is
+not especially *dangerous* — DShot frames are checksummed and BLHeli will not
+arm without a valid throttle-low signal, so floating inputs on an unpowered FC
+do not spin motors — but it disconnects nothing that matters, while looking
+like it does.
+
+**The battery connector is the disconnect.** No FPV multirotor has a power
+switch. Unplugging the XT60 is the only guaranteed-safe state, and an
+anti-spark XT60 handles the inrush spark from the ESC's bulk capacitor.
+
+### Power states
+
+| State | How to get it | Motors |
+|---|---|---|
+| Fully off | XT60 unplugged | dead |
+| FC only — bench work, flashing | USB connected, **no pack** | physically dead |
+| Full system, safe | XT60 plugged in, firmware disarmed | live bus, held at disarmed value |
+| Full system, armed | Safety arms — see [safety.md](safety.md) | live |
+
+The second row is the important one: the devkit's USB gives a better
+"controller running, motors physically dead" mode than any switch, for free.
+That is the normal bring-up configuration.
+
+### If a switch is fitted anyway
+
+A small switch in the FC's BAT feed — downstream of the ribbon entry, upstream
+of both the buck and the divider, so the whole board goes dead with no standby
+drain — is a legitimate bring-up convenience: it power-cycles the FC for
+reflashing without unplugging the pack. That path carries ~0.4 A at 16.8 V, so
+any slide switch or even a removable 2-pin jumper is sufficient.
+
+Label it in the schematic as **`FC POWER — NOT A SAFETY DISCONNECT`**. It is
+not one, and in three months that label is the only thing that will say so.
+
 ---
 
 ## The ToF sensors stay off the board
@@ -209,13 +312,14 @@ would instead talk to the vehicle directly.
 
 | Block | Part | Why |
 |---|---|---|
-| 4-in-1 ESC | 30.5 × 30.5, **3–6 S**, 45–60 A, integral TVS and low-ESR cap | See the voltage note below |
+| 4-in-1 ESC | **Skystars KO50A** — 30.5 × 30.5, 3–6 S, 50 A | Ordered. Full interface above |
+| 5 V regulator | **Pololu D24V10F5** — 5.1–36 V in, 5 V @ 1 A, 12.7 × 17.8 mm | Ordered. Fixed output, solder flat, 33 µF+ electrolytic at VIN per Pololu's lead-length warning |
 | MCU | ESP32-WROOM-32E (bare module) | Same silicon as the devkit — zero firmware port. Castellated and hand-solderable |
 | MCU (upgrade) | ESP32-S3-WROOM-1 | Native USB and BLE 5. Only worth it once BLE telemetry is wanted; verify the footprint difference before assuming drop-in |
 | IMU | **ICM-42688-P** | Much better anti-alias filtering than the ICM-20948, which matters a great deal on a vehicle that repeatedly slams into the ground. Drop the magnetometer — it is useless indoors beside 120 A of motor current |
 | ToF | **VL53L1X** | Programmable region of interest, which directly attacks the wide-cone problem documented in [hardware.md](hardware.md). VL53L5CX (8 × 8 zones) if off-axis rejection needs to be done properly |
-| 5 V rail | Synchronous buck rated **≥ 36 V input**, 2 A | Headroom for regen spikes |
-| 3.3 V rail | LDO from 5 V, separate feed for the IMU | Low noise for the gyro |
+| 5 V rail (Stage 3) | Discrete synchronous buck IC rated **≥ 36 V input** | Replaces the module once switching layout is worth learning on its own |
+| 3.3 V rail | Stage 2: the devkit's onboard AMS1117 (~50 mA of sensors — ample). Stage 3: an LDO from 5 V, separate feed for the IMU | Low noise for the gyro |
 | Protection | TVS on VBAT + low-ESR bulk at the pads | Non-negotiable beside brushless motors |
 
 **On ESC voltage rating:** a "6–18 V" (2–4 S) part is not acceptable here. A 4 S
@@ -282,10 +386,12 @@ becomes ours the moment the buck is on our board.
   checking against the actual frame before layout.
 - **MCU for Stage 3** — WROOM-32E (no port, no BLE) or S3 (port, BLE).
   Deferred until the BLE telemetry path is actually wanted.
-- **Current sensing.** Most 4-in-1 boards expose an analog current-sense output
-  on the ribbon. Worth wiring to an ADC1 pin: it gives joules-per-hop directly,
-  which is the number that validates the efficiency premise this whole vehicle
-  is built on.
+- **Current sensing.** Settled in principle — the KO50A exposes `CURR` on pin 8
+  and it should be wired to an ADC1 pin, because it gives joules-per-hop
+  directly, and that is the number validating the efficiency premise this whole
+  vehicle is built on. Still open: the volts-per-amp scale factor, which
+  Skystars does not publish and which will have to be calibrated against a
+  meter the same way the battery divider is.
 - **KiCad project location.** The schematic currently lives outside this
   repository. It should be committed under `hardware/` so the board and the
   firmware version together.

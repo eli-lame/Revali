@@ -493,15 +493,18 @@ part selection and the reasoning behind each step are in
 
 ### H1 — 4-in-1 ESC swap
 
-- [ ] `[H.1]` Buy a 30.5 × 30.5, **3–6 S**, 45–60 A 4-in-1 with an integral TVS
-      and low-ESR bulk cap. A 2–4 S (6–18 V) part is not acceptable — see the
-      voltage note in the roadmap.
-- [ ] `[H.2]` Record its ribbon pinout and mechanical drawing before designing
-      anything against it.
+- [x] `[H.1]` Buy a 30.5 × 30.5, **3–6 S**, 45–60 A 4-in-1. Chosen: **Skystars
+      KO50A**. 5 V regulator: **Pololu D24V10F5**. Both ordered.
+- [x] `[H.2]` Record its ribbon pinout before designing anything against it.
+      Confirmed: `GND · BAT · S1 · S2 · S3 · S4 · NC · CURR`. No BEC, so the
+      5 V rail is ours. See [hardware_roadmap.md](hardware_roadmap.md).
 - [ ] `[H.3]` Replace the four discrete ESCs. Re-verify motor ordering against
       the pin map in [hardware.md](hardware.md) and re-run the thrust-direction
       check `[2.14]` — the mapping is easy to get wrong during this swap.
 - [ ] `[H.4]` Confirm the ESCs still see a valid idle signal before arming.
+- [ ] `[H.4a]` Fit an anti-spark XT60 to the ESC's battery pads along with the
+      supplied bulk capacitor. **No switch in the motor path** — the connector
+      is the disconnect, see the roadmap.
 
 **Check:** all four motors respond to the correct commanded channel, same
 behaviour as before the swap, no brownouts under throttle transients.
@@ -509,9 +512,13 @@ behaviour as before the swap, no brownouts under throttle transients.
 ### H2 — Carrier board (first PCB)
 
 - [ ] `[H.5]` Commit the KiCad project under `hardware/`.
-- [ ] `[H.6]` Schematic: devkit socket, IMU and ToF connectors, 5 V buck,
-      3.3 V rail, **battery divider** (absent from the v1 schematic — see the
-      roadmap), status LED, buzzer.
+- [ ] `[H.6]` Schematic: devkit socket, 8-pin ESC ribbon, IMU and ToF
+      connectors, D24V10F5 footprint with a 33 µF+ electrolytic at its input,
+      TVS at the BAT entry, **battery divider** (absent from the v1 schematic —
+      see the roadmap), `CURR` to an ADC1 pin, status LED, buzzer.
+- [ ] `[H.6a]` If an FC power switch is fitted, place it downstream of the BAT
+      entry and upstream of both the buck and the divider, and label it
+      `FC POWER — NOT A SAFETY DISCONNECT` in the schematic.
 - [ ] `[H.7]` Add a 4-pin JST-SH footprint on a spare UART (5 V, GND, TX, RX),
       wired and unpopulated, so ELRS is later a firmware change rather than a
       respin.
