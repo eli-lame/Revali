@@ -127,22 +127,30 @@ number `warn_voltage` / `land_voltage` / `critical_voltage` in
 [safety.md](../../docs/safety.md) are checked against. Calibrate against a
 meter — task `[2.17]` / `[H.10]`.
 
-### Current sense — GPIO 35
+### Current sense — GPIO 35, routed but deferred
 
 ```
-J1.8 CURR ──[ R3 1 kΩ ]──┬──[ C6 100 nF ]── GND
-                         ├──[ R4 ]── GND      (divider, DNP initially)
-                         └── GPIO 35 (ADC1_CH7, input-only)
+J1.8 CURR ──[ R3 DNP ]──┬──[ C6 100 nF ]── GND
+                        ├──[ R4 DNP ]── GND     (divider leg, if needed)
+                        └── GPIO 35 (ADC1_CH7, input-only)
 ```
 
-**Skystars does not publish the KO50A's current-sense scale factor or its
-full-scale output voltage.** If it swings above 3.3 V it will damage the ESP32.
+**Current sensing is deliberately not being used on this board.** The trace and
+the footprints exist; `R3` is not populated, so the net is open and nothing
+reaches GPIO 35. There is nothing to measure, verify or calibrate at bring-up —
+skip it entirely.
 
-So: **leave `R3` unpopulated until you have measured it.** On the bench, props
-off, run the motors up and put a meter on `J1.8`. If full-scale is at or under
-3.3 V, fit `R3` and leave `R4` DNP. If it exceeds 3.3 V, size `R3`/`R4` as a
-divider to bring it under. Then calibrate volts-per-amp against a clamp meter
-the same way as the battery divider.
+The reasoning matches the reserved ELRS footprint: one trace and two pads on a
+board being fabricated anyway, versus a respin if it turns out to be wanted.
+Voltage sensing — which the failsafe genuinely requires — is populated and
+working regardless.
+
+**If it is enabled later**, two things have to happen first. Skystars does not
+publish the KO50A's full-scale output voltage, and anything above 3.3 V damages
+the ESP32 — so with props off, run the motors up and meter `J1.8`. If full
+scale is at or under 3.3 V, fit `R3` as 1 kΩ and leave `R4` DNP; if it exceeds
+3.3 V, size `R3`/`R4` as a divider. Then calibrate volts-per-amp against a
+clamp meter. Until that happens, leave both unpopulated.
 
 ### J8 — FC power switch (optional)
 
@@ -231,6 +239,88 @@ bring-up.
 
 ---
 
+## Protection and defensive design
+
+Cheap things that make a first board survivable. None of these cost meaningful
+space or money; all of them cost a respin if left out.
+
+### The devkit can be inserted backwards — prevent it on the silkscreen
+
+Two 1×15 sockets are mechanically symmetric. A devkit rotated 180° puts `+5V`
+where `GND` should be and will destroy it, the regulator, or both, instantly.
+Nothing electrical stops this.
+
+Silkscreen a **full devkit outline** with the USB end clearly marked —
+`USB THIS END` in text, plus a filled arrow. Mark pin 1 on both socket rows.
+This is the single most likely way to kill this board.
+
+### `F1` — PPTC on the BAT feed
+
+A 0.5 A hold polyfuse in series with `BAT`, right after `J1`. If the regulator
+ever fails short, this is what stops the pack from dumping into the board.
+Roughly 0.5 Ω, so ~0.2 V and 80 mW at the 0.4 A this path carries — irrelevant
+against the Pololu's 5.1 V minimum input.
+
+### `R10`–`R13` — 100 Ω series on the ESC signal lines
+
+One in series with each of S1–S4, at the connector. They limit fault current
+into a GPIO if something goes wrong off-board, and damp edges on the DShot
+lines. At DShot600 the RC delay against the ESC's input capacitance is a couple
+of nanoseconds — immaterial.
+
+### There is no protection against a reversed ribbon
+
+Worth stating plainly, because the instinct is to add a series diode. It does
+not help: an 8-pin connector reversed end-for-end swaps pin 1 with pin 8, so
+`GND` lands on `CURR` and `BAT` lands on `S4` — putting 16.8 V directly on
+GPIO 14. No power-path diode saves that.
+
+The defence is procedural, so do it properly:
+
+- JST-SH is keyed, so the cable cannot go in upside down — but **the connector
+  can be soldered rotated**, and the ESC's own cable can be reversed end for
+  end.
+- Silkscreen pin 1 on `J1` at both the board and, with a paint pen, on the
+  cable.
+- **Before the first plug-in, meter the assembled cable**: continuity from the
+  ESC's `GND` pad to what you believe is `J1` pin 1. Thirty seconds.
+
+### Test points
+
+Exposed 1 mm pads, no header, for: `BAT`, `+5V`, `+3V3`, `GND` (three of them,
+spread across the board), `SDA`, `SCL`, and the `GPIO 34` divider node.
+
+These cost nothing and are the difference between clipping a scope probe on in
+two seconds and trying to find bare copper on a soldermasked board while a
+motor is spinning. Put a ground test point near each signal one.
+
+### `J9` — spare GPIO breakout
+
+A 1×4 header exposing **GPIO 36, GPIO 39** (both input-only, ADC1 — ready for
+a future analog sensor or a barometer) and **GPIO 15**, plus a ground. Free
+now; a respin later. Mark GPIO 15 on the silkscreen as a strapping pin.
+
+### Mechanical
+
+- **Match the mounting holes to the soft-mount grommets the KO50A ships with.**
+  Plain M3 clearance is Ø3.2 mm, but FC grommets commonly need Ø4 mm. Measure
+  the supplied parts before committing — the wrong hole means no soft-mounting,
+  on a vehicle where gyro isolation genuinely matters.
+- **Leave the mounting holes non-plated with a keepout ring**, so a metal
+  standoff cannot short into a ground pour.
+- **Two Ø2 mm holes near `J4`/`J5`** to zip-tie the ToF cables. Cable flex at
+  the connector is a real failure mode on a vehicle that lands hard.
+- **Round the board corners**, 1–2 mm radius. Corners are where FR4 chips on
+  impact, and square ones chafe wiring.
+
+### Silkscreen
+
+Beyond the above: label every connector pin with both its signal name **and its
+GPIO number**, mark polarity on `C1` and `D2`, and put `REVALI STAGE 2 · rev A ·
+<date>` on the bottom copper. In November the board will have to explain itself.
+
+---
+
 ## Pin budget
 
 Every ESP32 pin this board uses, checked against the constraints in
@@ -282,8 +372,8 @@ Do not skip steps. Each one makes the next failure cheap.
 4. **Devkit in.** Confirm 3V3, blink an LED, serial at 115200.
 5. **Sensors.** I2C scan, then the ToF address sequence, then the IMU. `[1.4]`,
    `[2.8]`.
-6. **Dividers.** Calibrate battery sense against a meter. Measure `CURR`
-   full-scale *before* fitting `R3`.
+6. **Battery divider.** Calibrate against a meter. (Nothing to do for `CURR` —
+   it is unpopulated.)
 7. **ESC ribbon, props off.** Identify which physical motor each of S1–S4
    drives and record it. `[H.3]`.
 
@@ -311,18 +401,21 @@ there is nothing to think about. Either way: **props off.**
 | — | 10 µF 0805 (on +5V and +3V3) | 2 |
 | `R1` | 100 kΩ 1 % 0805 | 1 |
 | `R2` | 22 kΩ 1 % 0805 | 1 |
-| `R3` | 1 kΩ 0805 — **fit after measuring CURR** | 1 |
-| `R4` | current-sense divider leg — **DNP** | 1 |
+| `R3`, `R4` | current sense — **both DNP**, deferred | 2 |
 | `R5`, `R6` | 4.7 kΩ I2C pull-ups — **DNP** | 2 |
-| `R7` | 100 Ω 0805 | 1 |
-| `R8` | 10 kΩ 0805 | 1 |
-| `R9` | 1 kΩ 0805 | 1 |
+| `R7` | 100 Ω 0805 (buzzer gate) | 1 |
+| `R8` | 10 kΩ 0805 (buzzer gate pulldown) | 1 |
+| `R9` | 1 kΩ 0805 (power LED) | 1 |
+| `R10`–`R13` | 100 Ω 0805, ESC signal series | 4 |
+| `F1` | PPTC 0.5 A hold, 1206 | 1 |
+| — | Test points, 1 mm exposed pad | 8 |
 | `J1` | JST-SH 1.0 mm 8-pin, SMD | 1 |
 | `J2` | 1×15 female header 2.54 mm | 2 |
 | `J3` | 1×7 male header 2.54 mm | 1 |
 | `J4`, `J5` | JST-SH 1.0 mm 5-pin, SMD | 2 |
 | `J6` | JST-SH 1.0 mm 4-pin, SMD | 1 |
 | `J7`, `J8` | 1×2 male header 2.54 mm | 2 |
+| `J9` | 1×4 male header 2.54 mm, spare GPIO | 1 |
 
 0805 throughout rather than 0402 — this board is hand-soldered, and the space
 saving is worth nothing here.
