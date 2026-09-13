@@ -54,6 +54,7 @@ Start with [architecture.md](docs/architecture.md), then
 |---|---|
 | [architecture.md](docs/architecture.md) | Module boundaries and data flow |
 | [hardware.md](docs/hardware.md) | Wiring, buses, pin map, the VL53L0X address problem |
+| [hardware_roadmap.md](docs/hardware_roadmap.md) | Board architecture, the 4-in-1 stack, staged path to a custom FC |
 | [data_model.md](docs/data_model.md) | The structs every module shares |
 | [estimator.md](docs/estimator.md) | Attitude fusion and dual-ToF height |
 | [control_loop.md](docs/control_loop.md) | Controller, mixer, motor output |

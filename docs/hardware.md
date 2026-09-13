@@ -1,5 +1,10 @@
 # Hardware
 
+This file describes the vehicle as it is wired today, and is the source of
+truth for the pin map. For where the electronics are *going* — the two-board
+stack, why motor current stays off our board, and the staged path to a custom
+FC — see [hardware_roadmap.md](hardware_roadmap.md).
+
 ## Vehicle
 
 | Function | Part | Bus | Notes |
@@ -123,7 +128,14 @@ rear-right/rear-left order, or the mixer's roll/pitch/yaw math will not match
 the physical motor it thinks it's driving.
 
 **Avoid** GPIO 6–11 (flash), and be careful with 0, 2, 12, 15 (strapping). A
-pull-up on GPIO 12 at boot bricks the boot voltage selection.
+pull-up on GPIO 12 at boot bricks the boot voltage selection. **Also avoid
+GPIO 1 and 3 (UART0 TX/RX)** for anything — they carry the USB serial
+console every `Serial.print` in this project depends on, and the ROM
+bootloader uses them to receive new firmware during flashing. Driving them
+with anything else (an interrupt line, a sensor signal) conflicts with both.
+Note this isn't an ADC-related restriction; ESP32 supports external
+interrupts on essentially any usable GPIO, so a digital signal like IMU INT
+just needs a pin outside this avoid-list, not an ADC-capable one.
 
 ### Props mount BELOW the arms (pusher configuration)
 

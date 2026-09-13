@@ -485,6 +485,59 @@ condition verified.
 
 ---
 
+## Phase H — Hardware iteration (parallel track)
+
+Runs alongside the phases above and **must never block them**. Rationale,
+part selection and the reasoning behind each step are in
+[hardware_roadmap.md](hardware_roadmap.md).
+
+### H1 — 4-in-1 ESC swap
+
+- [ ] `[H.1]` Buy a 30.5 × 30.5, **3–6 S**, 45–60 A 4-in-1 with an integral TVS
+      and low-ESR bulk cap. A 2–4 S (6–18 V) part is not acceptable — see the
+      voltage note in the roadmap.
+- [ ] `[H.2]` Record its ribbon pinout and mechanical drawing before designing
+      anything against it.
+- [ ] `[H.3]` Replace the four discrete ESCs. Re-verify motor ordering against
+      the pin map in [hardware.md](hardware.md) and re-run the thrust-direction
+      check `[2.14]` — the mapping is easy to get wrong during this swap.
+- [ ] `[H.4]` Confirm the ESCs still see a valid idle signal before arming.
+
+**Check:** all four motors respond to the correct commanded channel, same
+behaviour as before the swap, no brownouts under throttle transients.
+
+### H2 — Carrier board (first PCB)
+
+- [ ] `[H.5]` Commit the KiCad project under `hardware/`.
+- [ ] `[H.6]` Schematic: devkit socket, IMU and ToF connectors, 5 V buck,
+      3.3 V rail, **battery divider** (absent from the v1 schematic — see the
+      roadmap), status LED, buzzer.
+- [ ] `[H.7]` Add a 4-pin JST-SH footprint on a spare UART (5 V, GND, TX, RX),
+      wired and unpopulated, so ELRS is later a firmware change rather than a
+      respin.
+- [ ] `[H.8]` 2-layer layout, 30.5 × 30.5 mounting, ERC and DRC clean.
+- [ ] `[H.9]` Fabricate, assemble by hand, bring up on a current-limited supply
+      with rails verified before the MCU is powered.
+- [ ] `[H.10]` Calibrate the battery divider against a meter — this is `[2.17]`,
+      finally possible.
+
+**Check:** the vehicle flies on the carrier board with the same firmware binary
+it ran on the breadboard.
+
+### H3 — Integrated FC
+
+- [ ] `[H.11]` 4-layer board: bare MCU module, ICM-42688-P, integrated buck,
+      USB. Drop-in replacement for H2 — same pin functions, same connector
+      positions.
+- [ ] `[H.12]` Select every part against the fab's assembly library before
+      finalising the schematic.
+- [ ] `[H.13]` Soft-mount, conformal coat, bring up as in `[H.9]`.
+
+**Check:** as H2. If this board does not work, the vehicle still flies on H2
+hardware and nothing downstream is blocked.
+
+---
+
 ## Standing rules
 
 1. **Props off** until Phase 11 — the only exceptions before then are the

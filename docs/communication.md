@@ -11,6 +11,14 @@ better than a connection-oriented protocol: typical latency is ~1–4 ms
 a packet is lost there's no connection to re-establish — the next one just
 goes out.
 
+ESP-NOW is the link for the current hardware generation and is not a
+placeholder to be rushed past. The eventual target is an ExpressLRS receiver
+over CRSF for control with telemetry on a separate path — see
+[hardware_roadmap.md](hardware_roadmap.md) — but that migration is deliberately
+held until the board and power architecture have stopped changing. Because the
+wire packet carries *intent* rather than raw throttle, CRSF slots in behind the
+same interface when the time comes, and nothing above the link layer changes.
+
 Here "the controller ESP32" means whichever peer you built — the reference
 joystick controller *or* the DS4/SCUF ground dongle. Both are ESP32s that speak
 ESP-NOW to the vehicle, and the vehicle cannot tell them apart (see
