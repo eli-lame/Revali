@@ -386,12 +386,17 @@ becomes ours the moment the buck is on our board.
   checking against the actual frame before layout.
 - **MCU for Stage 3** — WROOM-32E (no port, no BLE) or S3 (port, BLE).
   Deferred until the BLE telemetry path is actually wanted.
-- **Current sensing.** Settled in principle — the KO50A exposes `CURR` on pin 8
-  and it should be wired to an ADC1 pin, because it gives joules-per-hop
-  directly, and that is the number validating the efficiency premise this whole
-  vehicle is built on. Still open: the volts-per-amp scale factor, which
-  Skystars does not publish and which will have to be calibrated against a
-  meter the same way the battery divider is.
-- **KiCad project location.** The schematic currently lives outside this
-  repository. It should be committed under `hardware/` so the board and the
-  firmware version together.
+- **Current sensing.** Deferred, not dropped. The KO50A exposes `CURR` on pin 8,
+  and it would give joules-per-hop directly — the number that validates the
+  efficiency premise this whole vehicle is built on. Stage 2 routes the trace
+  and leaves the resistor unpopulated, so enabling it later costs one 0805 part
+  plus a calibration. Two things are unresolved until then: the full-scale
+  output voltage, which Skystars does not publish and which must be measured
+  before anything is connected to a GPIO, and the volts-per-amp scale factor,
+  which needs a meter.
+
+Settled since this document was written: the KiCad projects now live under
+`hardware/`, so the board and the firmware version together. v1 is archived
+there as `hardware/v1-prototype/` — see
+[hardware/README.md](../hardware/README.md) for the repository layout and the
+library conventions.

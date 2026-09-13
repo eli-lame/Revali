@@ -1,0 +1,115 @@
+(footprint "ESC_Power_SolderPads_1x02"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0 -7 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "46ecec0d-0795-4bc6-ab07-c49f320fec8a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "ESC_Power_SolderPads_1x02"
+		(at 0 12 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "80b21f1d-09b3-4ecf-add0-1409626a4038")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c497bd8e-70af-4160-bfde-5e747481f356")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "0fa3ff1c-5fde-43b1-b0fc-762b6788e326")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_text user "+"
+		(at -8 9 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "4da3c237-7854-4032-be99-3037cc3572aa")
+		(effects
+			(font
+				(size 4 4)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(fp_text user "-"
+		(at 3 9 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "160bbbbd-2ee3-45f6-976e-ccc5b7329696")
+		(effects
+			(font
+				(size 4 4)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 16 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "04d61383-9e7e-4f1e-9e49-3f4d20d42e6a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" thru_hole roundrect
+		(at -5 0 90)
+		(size 8 8)
+		(drill 4)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(roundrect_rratio 0.15)
+		(uuid "3e043b02-d7b0-4bf1-a74b-93a3acbfb4e5")
+	)
+	(pad "2" thru_hole roundrect
+		(at 5 0 90)
+		(size 8 8)
+		(drill 4)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(roundrect_rratio 0.15)
+		(uuid "ec7eea56-b10c-4c71-ba56-3c4d151a8f58")
+	)
+	(embedded_fonts no)
+)

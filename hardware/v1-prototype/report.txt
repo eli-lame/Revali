@@ -1,0 +1,10 @@
+Error: Update symbol U3 from 'HopCopter:VL53L0XV2_TOF' to 'HopCopter:VL53L0XV2_TOF': *** symbol not found ***
+Error: Update symbol U2 from 'HopCopter:SparkFun_ICM-20948' to 'HopCopter:SparkFun_ICM-20948': *** symbol not found ***
+Error: Update symbol U4 from 'HopCopter:VL53L0XV2_TOF' to 'HopCopter:VL53L0XV2_TOF': *** symbol not found ***
+Update symbol U5 from 'Genli:ESC_30A' to 'Genli:ESC_30A': OK
+Update symbol U8 from 'Genli:ESC_30A' to 'Genli:ESC_30A': OK
+Update symbol U6 from 'Genli:ESC_30A' to 'Genli:ESC_30A': OK
+Update symbol J1 from 'Connector_Generic:Conn_01x02' to 'Connector_Generic:Conn_01x02': OK
+Update symbol U9 from 'Genli:uctronic_buck_converter' to 'Genli:uctronic_buck_converter': OK
+Update symbol U7 from 'Genli:ESC_30A' to 'Genli:ESC_30A': OK
+Update symbol U10 from 'esp32_30pin_revised:ESP32_30Pin' to 'esp32_30pin_revised:ESP32_30Pin': OK

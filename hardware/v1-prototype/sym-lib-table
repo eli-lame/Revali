@@ -1,0 +1,5 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "Genli") (type "KiCad") (uri "${KIPRJMOD}/../lib/Genli.kicad_sym") (options "") (descr ""))
+	(lib (name "esp32_30pin_revised") (type "KiCad") (uri "${KIPRJMOD}/../lib/esp32_30pin_revised.kicad_sym") (options "") (descr ""))
+)
