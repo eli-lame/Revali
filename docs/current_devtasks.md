@@ -511,7 +511,9 @@ behaviour as before the swap, no brownouts under throttle transients.
 
 ### H2 — Carrier board (first PCB)
 
-- [ ] `[H.5]` Commit the KiCad project under `hardware/`.
+- [x] `[H.5]` KiCad work lives in [eli-lame/Genli](https://github.com/eli-lame/Genli),
+      one project per board, with every library vendored. The Stage 2 spec is
+      `stage2-carrier/README.md` there.
 - [ ] `[H.6]` Schematic: devkit socket, 8-pin ESC ribbon, IMU and ToF
       connectors, D24V10F5 footprint with a 33 µF+ electrolytic at its input,
       TVS at the BAT entry, **battery divider** (absent from the v1 schematic —

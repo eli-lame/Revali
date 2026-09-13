@@ -395,8 +395,15 @@ becomes ours the moment the buck is on our board.
   before anything is connected to a GPIO, and the volts-per-amp scale factor,
   which needs a meter.
 
-Settled since this document was written: the KiCad projects now live under
-`hardware/`, so the board and the firmware version together. v1 is archived
-there as `hardware/v1-prototype/` — see
-[hardware/README.md](../hardware/README.md) for the repository layout and the
+Settled since this document was written: the KiCad projects live in a separate
+repository, **[eli-lame/Genli](https://github.com/eli-lame/Genli)** — boards
+only, one KiCad project per board, with v1 archived there as `v1-prototype/`
+and the current work in `stage2-carrier/`. Its README carries the layout and
 library conventions.
+
+Because the boards and the firmware are versioned separately, two rules apply.
+This repository keeps [hardware.md](hardware.md) as the sole pin map and Genli
+links to it rather than copying it. And when gerbers are generated, the Revali
+commit the board was designed against is recorded in that board's
+`production/` directory — it is the only link back from a fabricated board to
+the pin map it assumed.

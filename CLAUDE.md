@@ -27,14 +27,18 @@ the same change** when a decision moves.
 `docs/hardware.md` wins any disagreement about a GPIO number. If a pin must
 change, change that table first, then everything referencing it.
 
-## Two tracks
+## Two repositories
 
-Work is split so neither blocks the other. A session normally belongs to one.
+- **This one** — firmware (`firmware/`, `controller/`, `shared/`, `tools/`) and
+  **all** design documentation, including the hardware docs. Phases 0–13 in
+  `current_devtasks.md`.
+- **[eli-lame/Genli](https://github.com/eli-lame/Genli)** — the KiCad projects.
+  Boards only, no docs. Phase H in `current_devtasks.md`.
 
-- **Firmware** — `firmware/`, `controller/`, `shared/`, `tools/`.
-  Phases 0–13 in `current_devtasks.md`.
-- **Hardware** — `hardware/`, and the hardware docs.
-  Phase H in `current_devtasks.md`.
+`docs/hardware.md` stays the single source of truth for the pin map. Genli
+links to it and must never copy the table — two copies is how a board and its
+firmware quietly diverge, and they are already in separate repositories. When a
+GPIO moves, change that table first.
 
 Firmware development runs on the existing breadboard and is never blocked
 behind a PCB revision. That is deliberate — see `docs/hardware_roadmap.md`.
