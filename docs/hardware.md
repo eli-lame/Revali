@@ -51,6 +51,28 @@ XSHUT is **not** 5 V tolerant and has an internal pull-up; drive it from a GPIO
 directly, and note that some breakouts need the pin driven low rather than
 floated to actually hold reset.
 
+**"Release" means high-impedance, not driven high.** On the carrier boards in
+use here, XSHUT is pulled up by a 47 kΩ resistor to the breakout's internal
+**2.8 V** rail — not to 3.3 V. So steps 2 and 4 above should set the GPIO back
+to `INPUT` and let that resistor do the work. Driving the pin high instead
+pushes a 3.3 V output into a 2.8 V rail through 47 kΩ; it works, but it
+back-feeds current for no reason, and there is nothing to gain from it.
+
+### The ToF breakout's VCC must be 3.3 V, never 5 V
+
+The carrier boards have an onboard regulator and a MOSFET level shifter, so
+`VIN` will happily accept 5 V — **do not give it 5 V.** The breakout's I2C
+pull-up resistors (10 kΩ) connect to `VIN` itself, so the SDA and SCL lines
+sit at whatever `VIN` is. Feed it 5 V and 5 V arrives on GPIO 21 and 22, which
+are not 5 V tolerant.
+
+This is why the pin map below says 3V3 for ToF VCC. It is not a convention;
+it is the difference between a working bus and a damaged ESP32.
+
+Those same 10 kΩ resistors are also why **no I2C pull-ups are needed on the
+carrier board** — two breakouts on one bus put two 10 kΩ sets in parallel,
+about 5 kΩ, which is already in the right range.
+
 ### Sensor geometry matters
 
 Record the mounting position of each ToF in the body frame — the estimator
@@ -112,7 +134,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | I2C SCL | 22 | gray | ToF pair, 400 kHz, shared bus |
 | ToF A XSHUT | 25 | violet | front-left sensor |
 | ToF B XSHUT | 26 | pink | rear-right sensor |
-| ToF VCC (both) | 3V3 | red | |
+| ToF VCC (both) | 3V3 | red | **not 5 V** — the breakout pulls SDA/SCL up to VIN |
 | ToF GND (both) | GND | black | |
 | Motor 1 (front-left) | 32 | — | ESC signal, LEDC or RMT |
 | Motor 2 (front-right) | 33 | — | ESC signal |
