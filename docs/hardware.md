@@ -142,7 +142,27 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | Motor 4 (rear-left) | 14 | — | ESC signal |
 | Battery sense (divider midpoint) | 34 | red/black twisted pair | ADC1, input-only pin |
 | Status LED | 2 | — | onboard, no external wiring |
-| Arming buzzer | 13 | — | optional but recommended |
+| Arming buzzer | 13 | — | optional; **not fitted on the Stage 2 board** |
+| ELRS / CRSF TX (FC → receiver) | 16 | — | reserved, unpopulated — see below |
+| ELRS / CRSF RX (receiver → FC) | 17 | — | reserved, unpopulated |
+
+**ELRS is reserved, not in use.** The link is ESP-NOW for this hardware
+generation — see [communication.md](communication.md). The Stage 2 board carries
+a four-pin footprint on these two GPIOs so that adopting CRSF later is a
+firmware change rather than a board revision. Nothing is populated, and no
+firmware should assume a receiver is present.
+
+The direction is named **from the ESP32's point of view**: GPIO 16 is the FC's
+transmit and connects to the *receiver's* RX; GPIO 17 is the FC's receive and
+connects to the receiver's TX. Getting that crossover backwards is the standard
+UART mistake, and it will not be discovered until someone first plugs a receiver
+in months from now.
+
+These pins are not fixed by hardware. The ESP32 routes UART through its GPIO
+matrix, so any output-capable pin can serve — GPIO 16/17 are simply the Arduino
+core's defaults for `Serial2`. If they move, this table changes first. Note also
+that GPIO 16/17 are consumed by PSRAM on ESP32-WROVER modules; the WROOM-32 used
+here is unaffected, but a future module with PSRAM would not be.
 
 Motor numbering matches the mixer diagram in [control_loop.md](control_loop.md)
 — wire ESC signal 1–4 to these GPIOs in that same front-left/front-right/
