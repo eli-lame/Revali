@@ -127,7 +127,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | IMU MISO | 19 | green | VSPI default |
 | IMU MOSI | 23 | blue | VSPI default |
 | IMU CS | 5 | orange | |
-| IMU INT | 4 | white | data-ready interrupt — use it, don't poll |
+| IMU INT | 35 | white | data-ready interrupt — use it, don't poll. Input-only pin; see the note below |
 | IMU VCC | 3V3 | red | **not 5 V** |
 | IMU GND | GND | black | |
 | I2C SDA | 21 | brown | ToF pair, 400 kHz, shared bus |
@@ -142,6 +142,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | Motor 4 (rear-left) | 14 | — | ESC signal |
 | Battery sense (divider midpoint) | 34 | red/black twisted pair | ADC1, input-only pin |
 | Status LED | 2 | — | onboard, no external wiring |
+| *free* | 4 | — | full-function pin, unassigned |
 | Arming buzzer | 13 | — | optional but recommended |
 | ELRS / CRSF TX (FC → receiver) | 16 | — | reserved, unpopulated — see below |
 | ELRS / CRSF RX (receiver → FC) | 17 | — | reserved, unpopulated |
@@ -163,6 +164,24 @@ matrix, so any output-capable pin can serve — GPIO 16/17 are simply the Arduin
 core's defaults for `Serial2`. If they move, this table changes first. Note also
 that GPIO 16/17 are consumed by PSRAM on ESP32-WROVER modules; the WROOM-32 used
 here is unaffected, but a future module with PSRAM would not be.
+
+**IMU INT is on GPIO 35, which is input-only and has no internal pull.**
+
+That is a deliberate trade: the interrupt line is only ever an input, so it
+costs nothing to spend one of the input-only pins on it, and GPIO 4 stays free
+as a full-function pin. The ESP32 supports external interrupts on any usable
+GPIO, so being input-only is no obstacle.
+
+Two consequences, both firmware's problem rather than the board's:
+
+- GPIO 34–39 have **no internal pull-up or pull-down**, and it is not
+  configurable. This is fine while the ICM-20948's INT output stays
+  **push-pull**, which is its default. Do not reconfigure it to open-drain via
+  `INT_PIN_CFG` — there is no pad for the external pull-up that would then be
+  required.
+- The pin **floats until the IMU initialises** and starts driving it. Attach
+  the interrupt handler *after* IMU init completes, or startup noise on a
+  floating input produces spurious interrupts that look like a sensor fault.
 
 Motor numbering matches the mixer diagram in [control_loop.md](control_loop.md)
 — wire ESC signal 1–4 to these GPIOs in that same front-left/front-right/
