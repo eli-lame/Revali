@@ -142,7 +142,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | Motor 4 (rear-left) | 14 | — | ESC signal |
 | Battery sense (divider midpoint) | 34 | red/black twisted pair | ADC1, input-only pin |
 | Status LED | 2 | — | onboard, no external wiring |
-| Arming buzzer | 13 | — | optional; **not fitted on the Stage 2 board** |
+| Arming buzzer | 13 | — | optional but recommended |
 | ELRS / CRSF TX (FC → receiver) | 16 | — | reserved, unpopulated — see below |
 | ELRS / CRSF RX (receiver → FC) | 17 | — | reserved, unpopulated |
 
