@@ -252,10 +252,27 @@ the custom board will mate to.
 
 ### Stage 2 — carrier board
 
-A 30.5 × 30.5, **2-layer, hand-solderable** board that carries the existing
-devkit in a 2.54 mm socket, the breakout modules, the buck, the battery
-divider, and the connectors. No bare chips, no fine pitch, nothing that cannot
-be reworked with an iron.
+A **2-layer, hand-solderable** board on the 30.5 × 30.5 mounting pattern,
+carrying the existing devkit in a 2.54 mm socket, the breakout modules, the
+regulator, the battery divider, and the connectors. No bare chips, no fine
+pitch, nothing that cannot be reworked with an iron.
+
+**Built and routed; outline came out at 58 × 88 mm.** Bigger than a
+conventional FC because a 30-pin devkit is 52 × 25 mm on its own, so the board
+overhangs the ESC on every side. Acceptable at this stage — weight optimisation
+is Stage 3's job, and it gets there by dropping the devkit for a bare module.
+
+Ground is a **single plane on `B.Cu`** with no top pour. The top layer routed
+densely enough that a pour filled only in patches and was not reaching several
+of the pads it was meant to serve. Every ground connection is explicit instead:
+through-hole pads through their own barrels, every SMD ground pad through a
+short wide stub to its own via. That is best practice regardless of whether a
+top pour exists — the return current from a decoupling capacitor wants the
+shortest loop into the plane, not a wander across the top layer looking for a
+via.
+
+Full net-by-net spec, BOM and bring-up order:
+[stage2-carrier/README.md](https://github.com/eli-lame/Genli/blob/main/stage2-carrier/README.md).
 
 This stage is easy to skip and should not be. It is cheap and quick, it teaches
 the entire pipeline end to end — schematic, footprints, layout, DRC, Gerbers,
