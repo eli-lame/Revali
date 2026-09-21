@@ -123,8 +123,8 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 
 | Signal | GPIO | Wire color (suggested) | Notes |
 |---|---|---|---|
-| IMU SCLK | 25 | yellow | **not a VSPI default** — see the note below |
-| IMU MISO | 19 | green | VSPI default |
+| IMU SCLK | 19 | yellow | **not a VSPI default** — see the note below |
+| IMU MISO | 25 | green | **not a VSPI default** |
 | IMU MOSI | 23 | blue | VSPI default |
 | IMU CS | 5 | orange | |
 | IMU INT | 35 | white | data-ready interrupt — use it, don't poll. Input-only pin; see the note below |
@@ -165,16 +165,18 @@ core's defaults for `Serial2`. If they move, this table changes first. Note also
 that GPIO 16/17 are consumed by PSRAM on ESP32-WROVER modules; the WROOM-32 used
 here is unaffected, but a future module with PSRAM would not be.
 
-**SCLK is on GPIO 25, which is not a VSPI default — so the SPI pins must be
+**SCLK and MISO are both off their VSPI defaults — so the SPI pins must be
 named explicitly in firmware.**
 
 ```cpp
-SPI.begin(25, 19, 23, 5);   // sck, miso, mosi, ss
+SPI.begin(19, 25, 23, 5);   // sck, miso, mosi, ss
 ```
 
-A bare `SPI.begin()` would silently give you GPIO 18 as the clock, which now
-drives a ToF's XSHUT instead. The IMU would simply never respond, and it would
-look like a dead sensor rather than a wiring assumption.
+Note the first two arguments: **19 is the clock, 25 is MISO.** Transposing them
+puts the clock on the IMU's data-out line and the IMU never responds — which
+looks like a dead sensor rather than a firmware assumption. A bare `SPI.begin()`
+is worse still: it would drive GPIO 18 as the clock, and GPIO 18 now resets a
+ToF.
 
 The swap costs nothing measurable. SPI signals on non-default pins route through
 the ESP32's GPIO matrix rather than the IOMUX, which lowers the maximum SPI
