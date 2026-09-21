@@ -123,15 +123,15 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 
 | Signal | GPIO | Wire color (suggested) | Notes |
 |---|---|---|---|
-| IMU SCLK | 19 | yellow | **not a VSPI default** — see the note below |
+| IMU SCLK | 23 | yellow | **not a VSPI default** — see the note below |
 | IMU MISO | 25 | green | **not a VSPI default** |
-| IMU MOSI | 23 | blue | VSPI default |
-| IMU CS | 5 | orange | |
+| IMU MOSI | 19 | blue | **not a VSPI default** |
+| IMU CS | 15 | orange | strapping pin, but its internal pull-up holds CS deasserted at boot — see below |
 | IMU INT | 35 | white | data-ready interrupt — use it, don't poll. Input-only pin; see the note below |
 | IMU VCC | 3V3 | red | **not 5 V** |
 | IMU GND | GND | black | |
-| I2C SDA | 21 | brown | ToF pair, 400 kHz, shared bus |
-| I2C SCL | 22 | gray | ToF pair, 400 kHz, shared bus |
+| I2C SDA | 22 | brown | ToF pair, 400 kHz, shared bus. **Not the Arduino default** |
+| I2C SCL | 21 | gray | ToF pair, 400 kHz, shared bus. **Not the Arduino default** |
 | ToF A XSHUT | 18 | violet | front-left sensor |
 | ToF B XSHUT | 26 | pink | rear-right sensor |
 | ToF VCC (both) | 3V3 | red | **not 5 V** — the breakout pulls SDA/SCL up to VIN |
@@ -142,7 +142,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | Motor 4 (rear-left) | 14 | — | ESC signal |
 | Battery sense (divider midpoint) | 34 | red/black twisted pair | ADC1, input-only pin |
 | Status LED | 2 | — | onboard, no external wiring |
-| *free* | 4 | — | full-function pin, unassigned |
+| *free* | 4, 5 | — | full-function pins, unassigned |
 | Arming buzzer | 13 | — | optional but recommended |
 | ELRS / CRSF TX (FC → receiver) | 16 | — | reserved, unpopulated — see below |
 | ELRS / CRSF RX (receiver → FC) | 17 | — | reserved, unpopulated |
@@ -165,33 +165,53 @@ core's defaults for `Serial2`. If they move, this table changes first. Note also
 that GPIO 16/17 are consumed by PSRAM on ESP32-WROVER modules; the WROOM-32 used
 here is unaffected, but a future module with PSRAM would not be.
 
-**SCLK and MISO are both off their VSPI defaults — so the SPI pins must be
-named explicitly in firmware.**
+**Every SPI pin and both I2C pins are off their framework defaults — so they
+must be named explicitly in firmware.**
 
 ```cpp
-SPI.begin(19, 25, 23, 5);   // sck, miso, mosi, ss
+SPI.begin(23, 25, 19, 15);   // sck, miso, mosi, ss
+Wire.begin(22, 21);          // sda, scl
 ```
 
-Note the first two arguments: **19 is the clock, 25 is MISO.** Transposing them
-puts the clock on the IMU's data-out line and the IMU never responds — which
-looks like a dead sensor rather than a firmware assumption. A bare `SPI.begin()`
-is worse still: it would drive GPIO 18 as the clock, and GPIO 18 now resets a
-ToF.
+**None of these four SPI pins and neither I2C pin is a framework default.**
+Bare `SPI.begin()` or `Wire.begin()` calls will silently use the wrong pins:
+the default clock would land on GPIO 18, which now resets a ToF, and the
+default I2C assignment has SDA and SCL crossed relative to this board. In both
+cases nothing errors — the sensors simply never answer, which reads as dead
+hardware rather than a firmware assumption.
 
-The swap costs nothing measurable. SPI signals on non-default pins route through
-the ESP32's GPIO matrix rather than the IOMUX, which lowers the maximum SPI
-clock from 80 MHz to 40 MHz and adds ~25 ns of input delay on MISO. This bus
-runs at 7 MHz, so both are irrelevant. It is all-or-nothing, incidentally —
-moving one signal off its default puts the whole bus on the matrix.
+Watch the argument order too. `SPI.begin` takes **sck, miso, mosi, ss**;
+`Wire.begin` takes **sda, scl**. Transposing either pair produces the same
+silent failure.
 
-It was done to separate the two ToF XSHUT lines onto opposite pin rows, matching
-their connectors being on opposite edges of the Stage 2 board.
+None of it costs anything measurable. SPI signals on non-default pins route
+through the ESP32's GPIO matrix rather than the IOMUX, lowering the maximum SPI
+clock from 80 MHz to 40 MHz and adding ~25 ns of input delay on MISO; this bus
+runs at 7 MHz. It is all-or-nothing, incidentally — moving one signal off its
+default puts the whole bus on the matrix, so further shuffling between
+non-default pins is free. I2C is routed through the same matrix and has no
+preferred pins at all.
 
-One layout consequence: the clock is now physically separated from MISO, MOSI
-and CS. At 7 MHz the resulting skew is a fraction of a nanosecond against a
-71 ns half-period, so it does not matter — but do not run SCLK closely parallel
-to an ESC signal for any distance, since both are high-activity lines. Cross
-them at right angles.
+The assignments came out of routing the Stage 2 board. The first move was
+taking SCLK off GPIO 18 so the two ToF XSHUT lines could sit on opposite pin
+rows, matching their connectors being on opposite edges; the rest followed.
+
+One layout consequence: the clock is physically separated from MISO, MOSI and
+CS. At 7 MHz the resulting skew is a fraction of a nanosecond against a 71 ns
+half-period, so it does not matter — but do not run SCLK closely parallel to an
+ESC signal for any distance, since both are high-activity lines. Cross them at
+right angles.
+
+**CS is on GPIO 15, a strapping pin, and that is deliberate rather than
+tolerated.** GPIO 15 must be high at boot (low merely silences the ROM boot
+log), and it has an internal pull-up. SPI chip-select is active-low, so that
+pull-up holds the IMU *deselected* through reset and before firmware configures
+the pin — the safe state — while satisfying the strapping requirement as a side
+effect. The pin's quirk and the signal's idle level agree.
+
+The one thing that would break it: never add anything that pulls GPIO 15 low at
+boot. The IMU's CS input is high-impedance and will not, and there is no
+pull-down on the Stage 2 board.
 
 **IMU INT is on GPIO 35, which is input-only and has no internal pull.**
 
