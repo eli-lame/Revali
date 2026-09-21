@@ -123,7 +123,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 
 | Signal | GPIO | Wire color (suggested) | Notes |
 |---|---|---|---|
-| IMU SCLK | 18 | yellow | VSPI default |
+| IMU SCLK | 25 | yellow | **not a VSPI default** — see the note below |
 | IMU MISO | 19 | green | VSPI default |
 | IMU MOSI | 23 | blue | VSPI default |
 | IMU CS | 5 | orange | |
@@ -132,7 +132,7 @@ other mention of these pins elsewhere in the docs as needing a matching update.
 | IMU GND | GND | black | |
 | I2C SDA | 21 | brown | ToF pair, 400 kHz, shared bus |
 | I2C SCL | 22 | gray | ToF pair, 400 kHz, shared bus |
-| ToF A XSHUT | 25 | violet | front-left sensor |
+| ToF A XSHUT | 18 | violet | front-left sensor |
 | ToF B XSHUT | 26 | pink | rear-right sensor |
 | ToF VCC (both) | 3V3 | red | **not 5 V** — the breakout pulls SDA/SCL up to VIN |
 | ToF GND (both) | GND | black | |
@@ -164,6 +164,32 @@ matrix, so any output-capable pin can serve — GPIO 16/17 are simply the Arduin
 core's defaults for `Serial2`. If they move, this table changes first. Note also
 that GPIO 16/17 are consumed by PSRAM on ESP32-WROVER modules; the WROOM-32 used
 here is unaffected, but a future module with PSRAM would not be.
+
+**SCLK is on GPIO 25, which is not a VSPI default — so the SPI pins must be
+named explicitly in firmware.**
+
+```cpp
+SPI.begin(25, 19, 23, 5);   // sck, miso, mosi, ss
+```
+
+A bare `SPI.begin()` would silently give you GPIO 18 as the clock, which now
+drives a ToF's XSHUT instead. The IMU would simply never respond, and it would
+look like a dead sensor rather than a wiring assumption.
+
+The swap costs nothing measurable. SPI signals on non-default pins route through
+the ESP32's GPIO matrix rather than the IOMUX, which lowers the maximum SPI
+clock from 80 MHz to 40 MHz and adds ~25 ns of input delay on MISO. This bus
+runs at 7 MHz, so both are irrelevant. It is all-or-nothing, incidentally —
+moving one signal off its default puts the whole bus on the matrix.
+
+It was done to separate the two ToF XSHUT lines onto opposite pin rows, matching
+their connectors being on opposite edges of the Stage 2 board.
+
+One layout consequence: the clock is now physically separated from MISO, MOSI
+and CS. At 7 MHz the resulting skew is a fraction of a nanosecond against a
+71 ns half-period, so it does not matter — but do not run SCLK closely parallel
+to an ESC signal for any distance, since both are high-activity lines. Cross
+them at right angles.
 
 **IMU INT is on GPIO 35, which is input-only and has no internal pull.**
 
