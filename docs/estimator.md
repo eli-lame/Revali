@@ -52,6 +52,52 @@ hundred samples while the vehicle is still — and refined by the Mahony
 integral term afterwards. Refuse to arm if the vehicle moved during
 calibration.
 
+## IMU full-scale ranges
+
+**Gyro: ±2000 dps. Accel: ±16 g.** Not the ICM-20948's power-on defaults of
+±250 dps and ±2 g, which are far too narrow for this vehicle.
+
+This is measured, not assumed. The bring-up self-test
+(`firmware/src/tools/imu_selftest.cpp`) runs at the power-on defaults, and
+**casual rotation by hand saturates the gyro** — it pins at ±250.13 dps, the
+exact `32767 / 131` full-scale rail:
+
+```
+g[ -250.14  -250.14    44.37] deg/s
+```
+
+If a hand twist rails it, a touchdown impact transmitted through a sprung leg
+certainly will. A saturated gyro does not report a large rate; it reports a
+*wrong* one, and it does so precisely during launch and landing — the moments
+the accel gate above has already rejected the accelerometer, leaving the gyro
+as the only attitude source. That combination violates standing rule 4
+(attitude control never stops), so the wide range is not optional.
+
+The cost is resolution: at ±2000 dps the gyro reads 16.4 LSB/(deg/s) instead
+of 131, so one LSB is 0.061 deg/s rather than 0.0076. That is far below both
+the part's noise floor and anything the controller can act on. Saturation is
+a correctness failure; resolution here is not.
+
+Changing the range changes the conversion constants with it — see
+`kGyroLsbPerDps` and `kAccelLsbPerG` in the self-test, which must track
+whatever bank 2 is configured to.
+
+## Accelerometer calibration
+
+The accel magnitude is not 9.81 out of the box. A bench-measured part read
+**|a| = 10.07 m/s² at rest**, about 2.7% high — ordinary scale-factor and
+zero-g offset tolerance, not a wiring fault.
+
+This matters more than it looks, because the accel trust band above is
+`1.5 m/s²`: an uncorrected 0.26 m/s² magnitude error consumes roughly a sixth
+of the band before the vehicle has moved at all, and it does so asymmetrically
+depending on orientation. Calibrate scale and offset per axis (a six-position
+static calibration is sufficient) and store the result in `Parameters`.
+
+Attitude itself is tolerant of this — Mahony uses the *direction* of the accel
+vector, which a common scale error does not rotate. It is the gravity-vs-hop
+discrimination that needs the magnitude to be right.
+
 ## Height: two downward sensors
 
 Each VL53L0X reports a slant range along its own boresight, not a vertical
