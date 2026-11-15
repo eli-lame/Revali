@@ -98,6 +98,54 @@ Attitude itself is tolerant of this — Mahony uses the *direction* of the accel
 vector, which a common scale error does not rotate. It is the gravity-vs-hop
 discrimination that needs the magnitude to be right.
 
+## VL53L0X measured behaviour
+
+Bench-measured on the Stage 2 board with `firmware/src/tools/tof_selftest.cpp`,
+ToF A against a flat wall, square-on, indoors.
+
+**Run the fast profile: 20 ms timing budget, ~50 Hz, signal rate limit
+0.25 MCPS.** The long-range profile (50 ms, 0.10 MCPS, lengthened VCSEL
+periods) is not needed. Fast tracks cleanly past 700 mm with no dropouts,
+so the sample rate costs nothing to keep.
+
+Noise, from settled static segments:
+
+| Distance | 1σ | Relative |
+|---|---|---|
+| 300 mm | ~5 mm | 1.8% |
+| 515 mm | ~5 mm | 1.0% |
+| 675 mm | ~17 mm | 2.5% |
+
+Noise grows with range, roughly 1–2.5% over the measured span. At a 500 mm
+hop apex expect about ±10 mm of per-sample noise on each sensor — well
+inside what the two-sensor fit and filtering absorb, but not negligible when
+setting touchdown thresholds.
+
+The ceiling was not reached; it is above 700 mm. If a hop profile ever needs
+more, re-measure before assuming.
+
+### The validity gate needs hysteresis, not a single-sample test
+
+Near the limit, validity *flickers*: isolated `out of range` samples appear
+among perfectly good readings rather than the sensor cutting out cleanly.
+A gate that drops the sensor on one bad sample will drop it constantly at
+the edge of range.
+
+Require N consecutive invalid samples before declaring the sensor lost, and
+N consecutive valid ones before trusting it again.
+
+### Two sample classes the driver must reject outright
+
+Both were observed passing through as structurally valid readings:
+
+- **Sub-minimum values.** A `6 mm` reading appeared between out-of-range
+  samples. The part's floor is ~30 mm; anything below that is a spurious
+  return, not a close target.
+- **Isolated jumps.** A single `656 mm` arrived immediately before a long
+  dropout run, surrounded by unrelated values. One sample inconsistent with
+  both its neighbours is noise, and on a vehicle moving at hop speeds the
+  rate of change is bounded — use that bound.
+
 ## Height: two downward sensors
 
 Each VL53L0X reports a slant range along its own boresight, not a vertical

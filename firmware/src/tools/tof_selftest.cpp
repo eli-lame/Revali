@@ -39,11 +39,24 @@ namespace {
 constexpr uint8_t kAddrDefault = 0x29;
 constexpr uint8_t kAddrTofA = 0x30;
 
-// ~50 Hz per sensor, matching the rate docs/estimator.md assumes. The
-// library's default is 33 ms; shorter budget means more noise per sample,
-// which the estimator filters, in exchange for latency the controller
-// cannot get back.
-constexpr uint32_t kTimingBudgetUs = 20000;
+// Two range profiles, switchable at runtime so they can be compared against
+// the SAME target rather than argued about.
+//
+// FAST is ~50 Hz, the rate docs/estimator.md assumes. SHORT BUDGETS COST
+// MAXIMUM RANGE -- that is the whole tradeoff, and it is why this is
+// measurable rather than hardcoded.
+//
+// LONG is the standard VL53L0X long-range configuration: drop the signal
+// rate limit so dimmer returns are accepted, and lengthen both VCSEL pulse
+// periods so more light goes out per measurement. Costs sample rate and
+// raises susceptibility to ambient IR.
+constexpr uint32_t kBudgetFastUs = 20000;  // ~50 Hz
+constexpr uint32_t kBudgetLongUs = 50000;  // ~20 Hz
+
+constexpr float kSignalRateDefault = 0.25f;  // MCPS, library default
+constexpr float kSignalRateLong = 0.10f;
+
+bool long_range_mode = false;
 
 VL53L0X tof_a;
 VL53L0X tof_b;
@@ -82,6 +95,42 @@ int bus_scan(const char* label) {
     return found;
 }
 
+// Applies whichever profile long_range_mode currently selects. Safe to call
+// on a sensor that is already ranging.
+void apply_profile(VL53L0X& sensor, bool present) {
+    if (!present) {
+        return;
+    }
+    sensor.stopContinuous();
+    delay(5);
+    if (long_range_mode) {
+        sensor.setSignalRateLimit(kSignalRateLong);
+        sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodPreRange, 18);
+        sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodFinalRange, 14);
+        sensor.setMeasurementTimingBudget(kBudgetLongUs);
+    } else {
+        sensor.setSignalRateLimit(kSignalRateDefault);
+        sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodPreRange, 14);
+        sensor.setVcselPulsePeriod(VL53L0X::VcselPeriodFinalRange, 10);
+        sensor.setMeasurementTimingBudget(kBudgetFastUs);
+    }
+    sensor.startContinuous();
+}
+
+void announce_profile() {
+    if (long_range_mode) {
+        Serial.printf("\n>> LONG RANGE: %lu us budget (~20 Hz), signal rate "
+                      "limit %.2f MCPS\n\n",
+                      static_cast<unsigned long>(kBudgetLongUs),
+                      kSignalRateLong);
+    } else {
+        Serial.printf("\n>> FAST: %lu us budget (~50 Hz), signal rate limit "
+                      "%.2f MCPS\n\n",
+                      static_cast<unsigned long>(kBudgetFastUs),
+                      kSignalRateDefault);
+    }
+}
+
 bool configure(VL53L0X& sensor, uint8_t addr, const char* name) {
     sensor.setBus(&Wire);
     sensor.setAddress(addr);
@@ -90,8 +139,7 @@ bool configure(VL53L0X& sensor, uint8_t addr, const char* name) {
         return false;
     }
     sensor.setTimeout(500);
-    sensor.setMeasurementTimingBudget(kTimingBudgetUs);
-    sensor.startContinuous();
+    apply_profile(sensor, true);
     Serial.printf("   %s: ranging at 0x%02X\n", name, addr);
     return true;
 }
@@ -160,6 +208,11 @@ void bring_up() {
     Serial.println();
 }
 
+// Every sample line carries its profile. A bring-up log gets pasted into a
+// chat or a doc hours later, stripped of whatever banner scrolled past, and
+// a reading means nothing without knowing which configuration produced it.
+void print_profile_tag() { Serial.print(long_range_mode ? "[LONG] " : "[FAST] "); }
+
 void print_one(VL53L0X& sensor, bool present, const char* name) {
     if (!present) {
         return;
@@ -196,12 +249,32 @@ void setup() {
     bring_up();
 
     if (have_a || have_b) {
-        Serial.println("Point it at a wall and walk it in and out. Readings");
-        Serial.println("should track smoothly. Expect roughly 30 mm to 1.2 m");
-        Serial.println("indoors; beyond that, or on a dark/angled surface,");
-        Serial.println("it reports out of range rather than a bad number.");
+        announce_profile();
+        Serial.println("Press 'l' to toggle FAST <-> LONG RANGE while it");
+        Serial.println("runs, so both profiles can be measured against the");
+        Serial.println("SAME target. Find the distance where each one starts");
+        Serial.println("reporting out of range -- that number, not the");
+        Serial.println("datasheet's, is what the hop controller has to live");
+        Serial.println("with.");
+        Serial.println();
+        Serial.println("Aim at a flat wall square-on, back away slowly, and");
+        Serial.println("note where it drops out. Then press 'l' and repeat.");
         Serial.println();
     }
+}
+
+void handle_input() {
+    if (!Serial.available()) {
+        return;
+    }
+    char c = static_cast<char>(Serial.read());
+    if (c != 'l' && c != 'L') {
+        return;
+    }
+    long_range_mode = !long_range_mode;
+    apply_profile(tof_a, have_a);
+    apply_profile(tof_b, have_b);
+    announce_profile();
 }
 
 void loop() {
@@ -210,6 +283,8 @@ void loop() {
         delay(2000);
         return;
     }
+    handle_input();
+    print_profile_tag();
     print_one(tof_a, have_a, "A");
     print_one(tof_b, have_b, "B");
     Serial.println();
