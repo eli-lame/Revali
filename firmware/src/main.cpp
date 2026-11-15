@@ -81,8 +81,11 @@ void xshut_continuity_check() {
     i2c_scan("both XSHUT low, expect nothing");
 
     // Release A only: expect exactly one device, at the power-on default
-    // address 0x29.
-    hal::gpio_write(board::kTofAXshut, true);
+    // address 0x29. "Release" is high-impedance, NOT driven high — the
+    // breakout pulls XSHUT up through 47 kOhm to its internal 2.8 V rail,
+    // so driving 3.3 V at it back-feeds current for nothing. See
+    // docs/hardware.md "Release means high-impedance, not driven high".
+    hal::gpio_configure(board::kTofAXshut, hal::PinMode::Input);
     delay(5);
     i2c_scan("A released, B held low, expect one device at 0x29");
 
@@ -90,7 +93,7 @@ void xshut_continuity_check() {
     // this is exactly why Phase 2 must run the reassignment sequence before
     // either sensor is usable). Seeing 0x29 respond here is a PASS for
     // wiring purposes; the conflict itself is normal and handled later.
-    hal::gpio_write(board::kTofBXshut, true);
+    hal::gpio_configure(board::kTofBXshut, hal::PinMode::Input);
     delay(5);
     i2c_scan("both released, expect 0x29 (address conflict is normal/expected)");
 
