@@ -50,6 +50,32 @@ single launch. Low-pass the measurement and evaluate the threshold against the
 filtered value, with a sustained-duration requirement (e.g. below threshold for
 1 s continuously) before tripping.
 
+**USB bench power reads as ~4.8 V on battery sense, and must not be mistaken
+for a dying pack.** Measured on the Stage 2 board: with no pack connected and
+the board powered over USB, `battery sense` reports **868 mV at GPIO 34**,
+which through the 22 k / 100 k divider is **4.81 V on the BAT net**.
+
+The path is USB 5 V → devkit `VIN` → the 5 V rail → the Pololu D24V10F5's
+*output*, leaking back through the regulator to its input, which is the BAT
+net. Nothing is wrong; the divider is working correctly and faithfully
+reporting a real voltage that simply is not a battery.
+
+This matters because every bring-up session from here on runs this way. A
+voltage gate that treats "low" as "dying" refuses to arm on the bench, every
+time, for the rest of the project.
+
+Separate the two cases explicitly rather than lowering a threshold:
+
+- **Below ~6 V** — no pack present, bench powered. Well clear of any plausible
+  4S figure (a 4S pack at 3.0 V/cell is 12.0 V), so the gap is wide and
+  unambiguous. Report this as *no battery*, not as *battery critical*.
+- **Between the no-pack ceiling and `critical_voltage`** — a real pack in
+  trouble. This is the case the failsafe exists for.
+
+Refusing to arm without a pack is correct. Reporting *why* is what makes the
+difference between a usable bench setup and one that lies to you — see the
+"report which check failed" rule under Arming.
+
 **The disarmed value is not zero.** ESCs need a valid idle signal to stay armed
 and responsive. Boot with outputs at the disarmed pulse width and hold there.
 Zero output means an unarmed ESC that will not respond when you need it.
