@@ -171,17 +171,13 @@ void bring_up() {
     // --- ToF B, if it is wired at all ------------------------------------
     release(board::kTofBXshut);
     Serial.println();
-    n = bus_scan("B released");
-    bool b_present = false;
-    for (uint8_t addr = 0x01; addr < 0x7F && !b_present; ++addr) {
-        if (addr == kAddrTofA) {
-            continue;
-        }
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0 && addr == kAddrDefault) {
-            b_present = true;
-        }
-    }
+    bus_scan("B released, expect 0x30 (A) and 0x29 (B)");
+
+    // A has already been moved off 0x29, so anything answering there now is
+    // the second sensor and nothing else can be.
+    Wire.beginTransmission(kAddrDefault);
+    bool b_present = (Wire.endTransmission() == 0);
+
     if (b_present) {
         have_b = configure(tof_b, kAddrDefault, "ToF B (rear-right)");
     } else {
@@ -213,19 +209,24 @@ void bring_up() {
 // a reading means nothing without knowing which configuration produced it.
 void print_profile_tag() { Serial.print(long_range_mode ? "[LONG] " : "[FAST] "); }
 
-void print_one(VL53L0X& sensor, bool present, const char* name) {
+// Reads one sensor and prints it. Returns the range in mm, or -1 if the
+// sample is unusable, so the caller can form the A-B difference.
+int32_t print_one(VL53L0X& sensor, bool present, const char* name) {
     if (!present) {
-        return;
+        return -1;
     }
     uint16_t mm = sensor.readRangeContinuousMillimeters();
     if (sensor.timeoutOccurred()) {
-        Serial.printf("  %s: TIMEOUT   ", name);
-    } else if (mm >= 8190) {
+        Serial.printf("  %s: TIMEOUT        ", name);
+        return -1;
+    }
+    if (mm >= 8190) {
         // 8190/8191 is the library's out-of-range sentinel, not a distance.
         Serial.printf("  %s: out of range   ", name);
-    } else {
-        Serial.printf("  %s: %4u mm (%5.2f m)   ", name, mm, mm / 1000.0f);
+        return -1;
     }
+    Serial.printf("  %s: %4u mm (%5.2f m)   ", name, mm, mm / 1000.0f);
+    return mm;
 }
 
 }  // namespace
@@ -285,8 +286,21 @@ void loop() {
     }
     handle_input();
     print_profile_tag();
-    print_one(tof_a, have_a, "A");
-    print_one(tof_b, have_b, "B");
+    int32_t a_mm = print_one(tof_a, have_a, "A");
+    int32_t b_mm = print_one(tof_b, have_b, "B");
+
+    // A-B is the quantity the estimator actually cares about: over flat
+    // ground, square-on, it should be near zero whatever the height, and it
+    // is what the ground-slope fit is built from. Printing it here means
+    // a tilt test reads directly instead of needing mental arithmetic on
+    // two columns.
+    if (have_a && have_b) {
+        if (a_mm >= 0 && b_mm >= 0) {
+            Serial.printf("  A-B: %+5ld mm", static_cast<long>(a_mm - b_mm));
+        } else {
+            Serial.print("  A-B:    --   ");
+        }
+    }
     Serial.println();
     delay(100);  // 10 Hz, readable in a terminal
 }

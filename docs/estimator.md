@@ -134,6 +134,27 @@ the edge of range.
 Require N consecutive invalid samples before declaring the sensor lost, and
 N consecutive valid ones before trusting it again.
 
+### The two sensors are not sampled simultaneously
+
+A and B are separate I2C devices, read one after the other, and each read
+blocks until that sensor has a fresh sample. The two readings in a "pair"
+can therefore be tens of milliseconds apart.
+
+Standing still this is invisible. In flight it is not: at a vertical speed
+of 2 m/s, a 20 ms skew puts **40 mm** of difference between the two
+readings with no ground slope present at all. The estimator cannot tell
+that apart from a real 40 mm slope, and it appears exactly during the fast
+vertical phases where the accel gate has already rejected the
+accelerometer.
+
+So the driver must **timestamp each sensor's sample individually** and
+expose both timestamps, rather than handing the estimator a pair and
+implying they are simultaneous. The slope fit then corrects for the age
+difference using the current vertical velocity estimate.
+
+This is a property of reading two independent sensors over one bus, not a
+wiring fault, and it does not go away with better mounting.
+
 ### Two sample classes the driver must reject outright
 
 Both were observed passing through as structurally valid readings:
